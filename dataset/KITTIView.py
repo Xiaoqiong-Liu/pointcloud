@@ -164,7 +164,7 @@ class KittiView:
 
             # show point cloud
             plot = mlab.points3d(pcloud[:, 0], pcloud[:, 1], pcloud[:, 2], np.arange(len(pcloud)), mode='point', figure=pcloud_fig)
-            # plot = mlab.points3d(pcloud[:, 0], pcloud[:, 1], pcloud[:, 2], mode='point', figure=pcloud_fig)
+            # plot = mlab.points3d(pcloud[:,np 0], pcloud[:, 1], pcloud[:, 2], mode='point', figure=pcloud_fig)
 
             # load and show 3d boxes
             if vis_box:
@@ -173,7 +173,7 @@ class KittiView:
                     bbox_color = kip.colors[kip.categories.index(object_type)]
                     bbox_color = (bbox_color[2]/255, bbox_color[1]/255, bbox_color[0]/255)
                     corners_3d = transform_3dbox_to_pointcloud(object['dimension'], object['location'], object['rotation'])
-
+                    center_3d = transform_3dbox_to_pointcloud(object['dimension'], object['location'], object['rotation'], True)
                     # draw lines
                     # a utility function to draw a line
                     def draw_line_3d(p1, p2, line_color=(0, 0, 0), fig=None):
@@ -188,11 +188,18 @@ class KittiView:
                         draw_line_3d(corners_3d[x1], corners_3d[x2], bbox_color)
 
                     # draw front lines 画X
-                    draw_line_3d(corners_3d[4], corners_3d[1], bbox_color)
-                    draw_line_3d(corners_3d[5], corners_3d[0], bbox_color)
+                    # draw_line_3d(corners_3d[4], corners_3d[1], bbox_color)
+                    # draw_line_3d(corners_3d[5], corners_3d[0], bbox_color)
 
-                    mlab.text3d(x=corners_3d[5, 0], y=corners_3d[5, 1], z=corners_3d[5, 2], \
-                                text=object_type+'-ID: '+str(object['id']), color=bbox_color, scale=0.35)
+                    # draw center 画中心点
+                    x = center_3d[:, 0]  # x position of point
+                    y = center_3d[:, 1]  # y position of point
+                    z = center_3d[:, 2]  # z position of point
+                    for x in range(8):
+                        draw_line_3d(corners_3d[x], center_3d[0], bbox_color)
+
+                    # mlab.text3d(x=corners_3d[5, 0], y=corners_3d[5, 1], z=corners_3d[5, 2], \
+                    #             text=object_type+'-ID: '+str(object['id']), color=bbox_color, scale=0.35)
 
             # fix the view of the camera
             mlab.view(azimuth=180, distance=30, elevation=60, focalpoint=np.mean(pcloud, axis=0)[:-1])
@@ -291,11 +298,11 @@ class KittiView:
 
 
 # # This is for debug
-# if __name__ == '__main__':
-#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-#     kittiView = KittiView(kitti_path)
-#     # kittiView.show_sequence_rgb(0, vis_2dbox=False, vis_3dbox=True, save_img=True)
-#     # kittiView.show_sequence_pointcloud(1, img_region=False, vis_box=True)
-#     kittiView.show_sequence_BEV(0, vis_box=True, save_img=True)
-#     print('end!')
+if __name__ == '__main__':
+    kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+    kittiView = KittiView(kitti_path)
+    # kittiView.show_sequence_rgb(0, vis_2dbox=False, vis_3dbox=True, save_img=True)
+    kittiView.show_sequence_pointcloud(0, img_region=False, vis_box=True)
+    # kittiView.show_sequence_BEV(0, vis_box=True, save_img=True)
+    print('end!')
     
