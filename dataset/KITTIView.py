@@ -297,12 +297,12 @@ class KittiView:
             os.remove(path='temp_img.png')  # remove temp image file
 
 
-# # This is for debug
-if __name__ == '__main__':
-    kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-    kittiView = KittiView(kitti_path)
-    # kittiView.show_sequence_rgb(0, vis_2dbox=False, vis_3dbox=True, save_img=True)
-    kittiView.show_sequence_pointcloud(0, img_region=False, vis_box=True)
-    # kittiView.show_sequence_BEV(0, vis_box=True, save_img=True)
-    print('end!')
+# # # This is for debug
+# if __name__ == '__main__':
+#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+#     kittiView = KittiView(kitti_path)
+#     # kittiView.show_sequence_rgb(0, vis_2dbox=False, vis_3dbox=True, save_img=True)
+#     kittiView.show_sequence_pointcloud(0, img_region=False, vis_box=True)
+#     # kittiView.show_sequence_BEV(0, vis_box=True, save_img=True)
+#     print('end!')
     

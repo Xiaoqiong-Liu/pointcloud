@@ -28,10 +28,10 @@ class TestTrackingSampler(torch.utils.data.Dataset):
         frame = self.dataset.get_frames(index, frame_ids)
         return frame
 
-# This is for debug
-if __name__ == '__main__':
-    kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-    kitti = KITTI(kitti_path)
-    sampler =  TestTrackingSampler(kitti)
-    item1 = sampler.__getitem__(1)
-    # print(kitti)
+# # This is for debug
+# if __name__ == '__main__':
+#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+#     kitti = KITTI(kitti_path)
+#     sampler =  TestTrackingSampler(kitti)
+#     item1 = sampler.__getitem__(1)
+#     # print(kitti)

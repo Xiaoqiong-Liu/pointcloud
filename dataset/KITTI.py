@@ -223,10 +223,10 @@ class KITTI(object):
                     np.fromfile(velodyne_path, dtype=np.float32).reshape(-1, 4).T)
         return {"pc": pc, "3d_bbox": bb, 'meta': anno}
 
-# This is for debug
-if __name__ == '__main__':
-    kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-    kitti = KITTI(kitti_path)
-    print(kitti)
+# # This is for debug
+# if __name__ == '__main__':
+#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+#     kitti = KITTI(kitti_path)
+#     print(kitti)
 
 
