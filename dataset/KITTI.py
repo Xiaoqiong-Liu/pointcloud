@@ -1,3 +1,10 @@
+"""
+Written by Heng Fan
+Update by x.l
+The KITTI class for data loading
+视频序列包括点云和RGB, 由于test标签不可得，只使用21个train数据集(train 0~18; validation 17～18; test 19～20);
+每个label一个tracklet;校正矩阵4个中使用P2
+"""
 import os
 import glob
 import numpy as np
