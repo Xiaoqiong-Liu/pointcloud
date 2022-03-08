@@ -3,11 +3,11 @@
 * Download the repository
 ```
 git clone https://github.com/Xiaoqiong-Liu/pointcloud.git
-cd Visualize-KITTI-Objects-in-Videos
+cd pointcloud
 ```
 * Create a new environment
 ```
-conda create -n pointcloud python=3.6 # Known issue: python 3.7,3.8 not work with mayavi on MacOS in my test
+conda create -n pointcloud python=3.6 # Known issue: python 3.7,python 3.8 not work with mayavi on MacOS in my test
 conda activate pointcloud
 ```
 
@@ -15,10 +15,12 @@ conda activate pointcloud
 ```
 pip install opencv-python
 pip install pillow
-pip install scipy
+pip install pyquaternion
+conda install scipy
 conda install yaml
 conda install importlib_resources
 conda install -c menpo mayavi
+conda install pytorch==1.4.0
 ```
 
 I use miniconda with Python 3.6 on macOS Big Sur 11.6 for running the code!
