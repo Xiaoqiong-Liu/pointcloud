@@ -1,10 +1,3 @@
-"""
-Written by Heng Fan
-Update by x.l
-The KITTI class for data loading
-视频序列包括点云和RGB, 由于test标签不可得，只使用21个train数据集(train 0~18; validation 17～18; test 19～20);
-每个label一个tracklet;校正矩阵4个中使用P2
-"""
 import os
 import glob
 import numpy as np
@@ -12,6 +5,10 @@ import numpy as np
 from utility import *
 import cv2 as cv
 from easydict import EasyDict as edict
+import pandas as pd
+from pyquaternion import Quaternion
+from Box import Box
+from PointCloud import PointCloud
 
 class KITTI(object):
     """
@@ -28,6 +25,50 @@ class KITTI(object):
         self.sequence_list = self._get_sequence_list()
         self.categories = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc']
         self.colors = custom_colors()
+        self.tracklet_anno_list, self.tracklet_len_list = self._get_tracklet_list()
+    
+    def _get_tracklet_list(self):
+        """
+        copy from BAT
+        :return: the list of tracklet label
+        """
+        list_of_tracklet_anno = []
+        list_of_tracklet_len = []
+        for scene in range(2):
+            sequence_name = self.sequence_list[scene].name
+            label_file = sequence_label_path = '{}/label_2/{}.txt'.format(self.dataset_path, sequence_name)
+
+            df = pd.read_csv(
+                label_file,
+                sep=' ',
+                names=[
+                    "frame", "track_id", "type", "truncated", "occluded",
+                    "alpha", "bbox_left", "bbox_top", "bbox_right",
+                    "bbox_bottom", "height", "width", "length", "x", "y", "z",
+                    "rotation_y"
+                ])
+            if self.categories in ['Car', 'Van', 'Truck',
+                                      'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram',
+                                      'Misc']:
+                df = df[df["type"] == self.categories]
+            elif self.categories == 'All':
+                df = df[(df["type"] == 'Car') |
+                        (df["type"] == 'Van') |
+                        (df["type"] == 'Pedestrian') |
+                        (df["type"] == 'Cyclist')]
+            else:
+                df = df[df["type"] != 'DontCare']
+            df.insert(loc=0, column="scene", value=scene)
+            for track_id in df.track_id.unique():
+                df_tracklet = df[df["track_id"] == track_id]
+                df_tracklet = df_tracklet.sort_values(by=['frame'])
+                df_tracklet = df_tracklet.reset_index(drop=True)
+                tracklet_anno = [anno for index, anno in df_tracklet.iterrows()]
+                list_of_tracklet_anno.append(tracklet_anno)
+                list_of_tracklet_len.append((len(tracklet_anno)))
+
+        return list_of_tracklet_anno, list_of_tracklet_len
+
 
     def _get_sequence_list(self):
         """
@@ -101,7 +142,6 @@ class KITTI(object):
         :param sequence_name: sequence name
         :return: the labels of a sequence
         """
-
         sequence_label_path = '{}/label_2/{}.txt'.format(self.dataset_path, sequence_name)
         with open(sequence_label_path, 'r') as f:
             labels = f.readlines()
@@ -115,11 +155,11 @@ class KITTI(object):
         for line in labels:
             # process each line
             line = line.split()
-            frame_id, object_id, object_type, truncat, occ, alpha, l, t, r, b, height, width, lenght, x, y, z, rotation = line
+            frame_id, object_id, object_type, truncat, occ, alpha, l, t, r, b, height, width, length, x, y, z, rotation = line
 
             # map string to int or float
             frame_id, object_id, truncat, occ = map(int, [frame_id, object_id, truncat, occ])
-            alpha, l, t, r, b, height, width, lenght, x, y, z, rotation = map(float, [alpha, l, t, r, b, height, width, lenght, x, y, z, rotation])
+            alpha, l, t, r, b, height, width, length, x, y, z, rotation = map(float, [alpha, l, t, r, b, height, width, length, x, y, z, rotation])
 
             if object_type != 'DontCare':
                 object = dict()    # store the information of this object
@@ -129,7 +169,7 @@ class KITTI(object):
                 object['occ'] = occ
                 object['alpha'] = alpha
                 object['bbox'] = [l, t, r, b]
-                object['dimension'] = [height, width, lenght]
+                object['dimension'] = [height, width, length]
                 object['location'] = [x, y, z]
                 object['rotation'] = rotation
 
@@ -152,11 +192,34 @@ class KITTI(object):
                 sequence_label.append([])
 
         return sequence_label
+    
+    def get_frames(self, seq_id, frame_ids):
+        seq_annos = self.tracklet_anno_list[seq_id]
+        frames = [self._get_frame_from_anno(seq_annos[f_id]) for f_id in frame_ids]
+        return frames
+    
+    def _get_frame_from_anno(self, anno):
+        scene_id = anno['scene']
+        frame_id = anno['frame']
+        assert scene_id>=0 and scene_id<len(self.sequence_list), \
+        'The id of the scene/sequence should be in the range [0, {}]'.format(str(self.sequence_num-1))
+        calib = self.sequence_list[scene_id].calib
+        
+        dimension = [anno['height'],anno['width'],anno['length']]
+        location = [anno['x'],anno['y'],anno['z']]
+        rotation = anno['rotation_y']
+        velodyne_path = '{}/velodyne/{:04}/{:06}.bin'.format(self.dataset_path, scene_id+1, frame_id)
+        box_center_velo = transform_3dbox_to_pointcloud(dimension, location, rotation, returnCenter=True)[0]
+        orientation = Quaternion(axis=[0, 1, 0], radians=anno["rotation_y"]) * Quaternion(axis=[1, 0, 0], radians=np.pi / 2)
+        bb = Box(box_center_velo, dimension, orientation)
+        pc = PointCloud(
+                    np.fromfile(velodyne_path, dtype=np.float32).reshape(-1, 4).T)
+        return {"pc": pc, "3d_bbox": bb, 'meta': anno}
 
-# # This is for debug
-# if __name__ == '__main__':
-#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-#     kitti = KITTI(kitti_path)
-#     # print(kitti)
+# This is for debug
+if __name__ == '__main__':
+    kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+    kitti = KITTI(kitti_path)
+    print(kitti)
 
 
