@@ -42,7 +42,7 @@ def custom_colors():
     return colors
 
 
-def transform_3dbox_to_pointcloud(dimension, location, rotation):
+def transform_3dbox_to_pointcloud(dimension, location, rotation, returnCenter=False):
     """
     convert the 3d box to coordinates in pointcloud
     :param dimension: height, width, and length
@@ -57,6 +57,7 @@ def transform_3dbox_to_pointcloud(dimension, location, rotation):
     z_corners = [width/2, -width/2, -width/2, width/2, width/2, -width/2, -width/2, width/2]
 
     corners_3d = np.vstack([x_corners, y_corners, z_corners])
+    centers_3d = np.vstack([0,-height/2,0])
 
     # transform 3d box based on rotation along Y-axis
     R_matrix = np.array([[np.cos(rotation), 0, np.sin(rotation)],
@@ -64,13 +65,18 @@ def transform_3dbox_to_pointcloud(dimension, location, rotation):
                          [-np.sin(rotation), 0, np.cos(rotation)]])
 
     corners_3d = np.dot(R_matrix, corners_3d).T
+    centers_3d = np.dot(R_matrix, centers_3d).T
 
     # shift the corners to from origin to location
     corners_3d = corners_3d + np.array([x, y, z])
+    centers_3d = centers_3d + np.array([x, y, z])
 
     # from camera coordinate to velodyne coordinate
     corners_3d = corners_3d[:, [2, 0, 1]] * np.array([[1, -1, -1]])
+    centers_3d = centers_3d[:, [2, 0, 1]] * np.array([[1, -1, -1]])
 
+    if returnCenter:
+        return centers_3d
     return corners_3d
 
 
