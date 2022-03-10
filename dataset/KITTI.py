@@ -41,7 +41,8 @@ class KITTI(object):
         """
         list_of_tracklet_anno = []
         list_of_tracklet_len = []
-        for scene in range(2):
+        seq_num = len(self.sequence_list)
+        for scene in range(seq_num):
             sequence_name = self.sequence_list[scene].name
             label_file = sequence_label_path = '{}/label_2/{}.txt'.format(self.dataset_path, sequence_name)
 
