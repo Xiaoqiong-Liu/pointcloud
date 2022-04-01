@@ -6,9 +6,9 @@ The KITTI sampler for pyTorch Dataloader
 import torch
 import numpy as np
 from easydict import EasyDict
-from KITTI import KITTI
+from dataset.KITTI import KITTI
 
-class TestTrackingSampler(torch.utils.data.Dataset):
+class KITTISampler(torch.utils.data.Dataset):
     def __init__(self, dataset, config=None, **kwargs):
         if config is None:
             config = EasyDict(kwargs)
@@ -28,10 +28,15 @@ class TestTrackingSampler(torch.utils.data.Dataset):
         frame = self.dataset.get_frames(index, frame_ids)
         return frame
 
-# # This is for debug
-# if __name__ == '__main__':
-#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
-#     kitti = KITTI(kitti_path)
-#     sampler =  TestTrackingSampler(kitti)
-#     item1 = sampler.__getitem__(1)
-#     # print(kitti)
+# This is for debug
+if __name__ == '__main__':
+    # kitti_path = '/home/UNT/xl0217/pointcloud/data/KITTI'
+    kitti_path = '/mnt/Data/KITTI'
+    config = {
+        'preload_offset':-1
+    }
+    config = EasyDict(config)
+    kitti = KITTI(kitti_path, 'test', config)
+    sampler =  KITTISampler(kitti)
+    item1 = sampler.__getitem__(0)
+    print(kitti)

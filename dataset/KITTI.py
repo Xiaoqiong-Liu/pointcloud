@@ -2,20 +2,23 @@
 Written by Heng Fan
 Update by x.l
 The KITTI class for data loading
-视频序列包括点云和RGB, 由于test标签不可得，只使用21个train数据集(train 0~18; validation 17～18; test 19～20);
-每个label一个tracklet;校正矩阵4个中使用P2
+视频序列包括点云和RGB, 由于test标签不可得，只使用21个train数据集(train 0~16; validation 17～18; test 19～20);
+每个tack id一个tracklet;校正矩阵4个中使用P2
 """
 import os
 import glob
+from unicodedata import category
 import numpy as np
 # import seaborn as sns
-from utility import *
+from dataset.utility import *
 import cv2 as cv
 from easydict import EasyDict as edict
 import pandas as pd
 from pyquaternion import Quaternion
-from Box import Box
-from PointCloud import PointCloud
+from dataset.Box import Box
+from dataset.PointCloud import PointCloud
+from dataset import points_utils
+from collections import defaultdict
 
 class KITTI(object):
     """
@@ -23,16 +26,20 @@ class KITTI(object):
     Andreas Geiger, Philip Lenz, and Raquel Urtasun,
     CVPR, 2012.
     """
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, split, config):
         '''
         :param dataset_path: path to the KITTI dataset
         '''
         super(KITTI, self).__init__()
         self.dataset_path = dataset_path
-        self.sequence_list = self._get_sequence_list()
+        self.sequence_list = self._get_sequence_list(split)
         self.categories = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc']
+        self.preload_offset = config.preload_offset
+        self.category_name = "Car"
+        self.coordinate_mode = 'velodyne'
+        self.velos = defaultdict(dict)
         self.colors = custom_colors()
-        self.tracklet_anno_list, self.tracklet_len_list = self._get_tracklet_list()
+        self.tracklet_anno_list, self.tracklet_len_list = self._get_tracklet_list()      
     
     def _get_tracklet_list(self):
         """
@@ -42,9 +49,9 @@ class KITTI(object):
         list_of_tracklet_anno = []
         list_of_tracklet_len = []
         seq_num = len(self.sequence_list)
-        for scene in range(seq_num):
-            sequence_name = self.sequence_list[scene].name
-            label_file = sequence_label_path = '{}/label_2/{}.txt'.format(self.dataset_path, sequence_name)
+        for seq in range(seq_num):
+            scene = self.sequence_list[seq].name
+            label_file = sequence_label_path = '{}/label_02/{}.txt'.format(self.dataset_path, scene)
 
             df = pd.read_csv(
                 label_file,
@@ -55,11 +62,11 @@ class KITTI(object):
                     "bbox_bottom", "height", "width", "length", "x", "y", "z",
                     "rotation_y"
                 ])
-            if self.categories in ['Car', 'Van', 'Truck',
+            if self.category_name in ['Car', 'Van', 'Truck',
                                       'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram',
                                       'Misc']:
-                df = df[df["type"] == self.categories]
-            elif self.categories == 'All':
+                df = df[df["type"] == self.category_name]
+            elif self.category_name == 'All':
                 df = df[(df["type"] == 'Car') |
                         (df["type"] == 'Van') |
                         (df["type"] == 'Pedestrian') |
@@ -77,23 +84,50 @@ class KITTI(object):
 
         return list_of_tracklet_anno, list_of_tracklet_len
 
+    def get_num_tracklets(self):
+        """
+        copy from BAT
+        :return: the length of tracklet label
+        """
+        return len(self.tracklet_anno_list)
+    
+    def get_sequence_byname(self, name):
+        """
+        get sequnce by name
+        """
+        seqs = self.sequence_list
+        for seq in seqs:
+            if seq.name == name:
+                return seq
+        return None
 
-    def _get_sequence_list(self):
+    def _get_sequence_list(self, config):
         """
         :return: the sequence list
         """
-
+        # used to store sequence number
+        sequence_list_num  = {
+            'train': [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],
+            'validation': [17,18],
+            'test': [19,20]
+        }
+        config = config.lower()
+        
         # used to store the sequence info
         sequence_list = []
 
         # get all video names
         vid_names = os.listdir('{}/velodyne'.format(self.dataset_path))
         vid_names.sort()
+        
+        # filter video names according to config(train, validation or test)
+        vid_names = ['%04d' % vid_name for vid_name in sequence_list_num[config]]
+
         self.sequence_num = len(vid_names)
 
         for vid in vid_names:
             # store information of a sequence
-            img_list = glob.glob('{}/image_2/{}/*.png'.format(self.dataset_path, vid))
+            img_list = glob.glob('{}/image_02/{}/*.png'.format(self.dataset_path, vid))
             img_list.sort()
             pcloud_list = glob.glob('{}/velodyne/{}/*.bin'.format(self.dataset_path, vid))
             pcloud_list.sort()
@@ -150,7 +184,7 @@ class KITTI(object):
         :param sequence_name: sequence name
         :return: the labels of a sequence
         """
-        sequence_label_path = '{}/label_2/{}.txt'.format(self.dataset_path, sequence_name)
+        sequence_label_path = '{}/label_02/{}.txt'.format(self.dataset_path, sequence_name)
         with open(sequence_label_path, 'r') as f:
             labels = f.readlines()
 
@@ -209,25 +243,37 @@ class KITTI(object):
     def _get_frame_from_anno(self, anno):
         scene_id = anno['scene']
         frame_id = anno['frame']
-        assert scene_id>=0 and scene_id<len(self.sequence_list), \
-        'The id of the scene/sequence should be in the range [0, {}]'.format(str(self.sequence_num-1))
-        calib = self.sequence_list[scene_id].calib
+        calib = self.get_sequence_calib(scene_id)
+        velodyne_path = '{}/velodyne/{}/{:06}.bin'.format(self.dataset_path, scene_id, frame_id)
+        velo_to_cam = np.vstack((calib["Tr_velo_cam"], np.array([0, 0, 0, 1])))
+        # copy from BAT
+        if self.coordinate_mode == 'velodyne':
+            box_center_cam = np.array([anno["x"], anno["y"] - anno["height"] / 2, anno["z"], 1])
+            # transform bb from camera coordinate into velo coordinates
+            box_center_velo = np.dot(np.linalg.inv(velo_to_cam), box_center_cam)
+            box_center_velo = box_center_velo[:3]
+            size = [anno["width"], anno["length"], anno["height"]]
+            orientation = Quaternion(
+                axis=[0, 0, -1], radians=anno["rotation_y"]) * Quaternion(axis=[0, 0, -1], degrees=90)
+            bb = Box(box_center_velo, size, orientation)
         
-        dimension = [anno['height'],anno['width'],anno['length']]
-        location = [anno['x'],anno['y'],anno['z']]
-        rotation = anno['rotation_y']
-        velodyne_path = '{}/velodyne/{:04}/{:06}.bin'.format(self.dataset_path, scene_id+1, frame_id)
-        box_center_velo = transform_3dbox_to_pointcloud(dimension, location, rotation, returnCenter=True)[0]
-        orientation = Quaternion(axis=[0, 1, 0], radians=anno["rotation_y"]) * Quaternion(axis=[1, 0, 0], radians=np.pi / 2)
-        bb = Box(box_center_velo, dimension, orientation)
-        pc = PointCloud(
+        try:
+            try:
+                pc = self.velos[scene_id][frame_id]
+            except KeyError:
+                pc = PointCloud(
                     np.fromfile(velodyne_path, dtype=np.float32).reshape(-1, 4).T)
+                self.velos[scene_id][frame_id] = pc
+            if self.preload_offset > 0:
+                pc = points_utils.crop_pc_axis_aligned(pc, bb, offset=self.preload_offset)
+        except:
+            pc = PointCloud(np.array([[0, 0, 0]]).T)
         return {"pc": pc, "3d_bbox": bb, 'meta': anno}
 
-# # This is for debug
+# This is for debug
 # if __name__ == '__main__':
-#     kitti_path = '/Users/avivaliu/Visualize-KITTI-Objects-in-Videos/data/KITTI'
+#     kitti_path = '/mnt/Data/KITTI'
 #     kitti = KITTI(kitti_path)
-#     print(kitti)
+#     print(len(kitti.sequence_list)) #打印sequence长度
 
 
