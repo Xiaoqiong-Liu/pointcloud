@@ -45,4 +45,9 @@ KITTI
         --- [0000-0020] folders with .bin files
 ```
 If you don't want to download the dataset, a smaller version in `root_path_to_this_repo/data/KITTI/` is provided in this repository with a simplified seuqnece (sequence `0001`). You can also refer this to prepare the dataset.
+## Visualization test
+under pointcloud
+```
+python test.py
+```
 
