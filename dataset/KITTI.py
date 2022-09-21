@@ -17,7 +17,7 @@ import pandas as pd
 from pyquaternion import Quaternion
 from dataset.Box import Box
 from dataset.PointCloud import PointCloud
-from dataset import points_utils
+# from dataset import points_utils
 from collections import defaultdict
 
 class KITTI(object):
@@ -264,16 +264,16 @@ class KITTI(object):
                 pc = PointCloud(
                     np.fromfile(velodyne_path, dtype=np.float32).reshape(-1, 4).T)
                 self.velos[scene_id][frame_id] = pc
-            if self.preload_offset > 0:
-                pc = points_utils.crop_pc_axis_aligned(pc, bb, offset=self.preload_offset)
+            # if self.preload_offset > 0:
+            #     pc = points_utils.crop_pc_axis_aligned(pc, bb, offset=self.preload_offset)
         except:
             pc = PointCloud(np.array([[0, 0, 0]]).T)
         return {"pc": pc, "3d_bbox": bb, 'meta': anno}
 
 # This is for debug
-# if __name__ == '__main__':
-#     kitti_path = '/mnt/Data/KITTI'
-#     kitti = KITTI(kitti_path)
-#     print(len(kitti.sequence_list)) #打印sequence长度
+if __name__ == '__main__':
+    kitti_path = '/mnt/Data/KITTI'
+    kitti = KITTI(kitti_path)
+    print(len(kitti.sequence_list)) #打印sequence长度
 
 
