@@ -16,6 +16,10 @@ conda activate pointcloud
 pip install opencv-python
 pip install pillow
 pip install pyquaternion
+pip install torchmetrics
+pip install typing-extensions
+pip install shapely
+pip install pyyaml
 conda install scipy
 conda install yaml
 conda install importlib_resources
