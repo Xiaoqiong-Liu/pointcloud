@@ -3,10 +3,12 @@ Created by x.l at 2022/03/03
 A test to visualize Kitti 
 """
 
-from KITTI import KITTI
+from dataset.KITTI import KITTI
 import argparse
 import yaml
 from easydict import EasyDict
+from dataset.KITTIView import *
+
 
 def load_yaml(file_name):
     with open(file_name, 'r') as f:
